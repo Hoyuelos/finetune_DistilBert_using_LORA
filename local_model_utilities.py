@@ -5,13 +5,14 @@ import torchmetrics
 import torch
 import torch.nn.functional as F
 
+num_classes = 3
 
 def compute_accuracy(model, data_loader, device):
     model.eval()
     correct_pred, num_examples = 0, 0
     with torch.no_grad():
         for features, targets in data_loader:
-            features = features.view(-1, 28*28).to(device)
+            features = features.view(-1, 28*28).to(device)          # check this out
             targets = targets.to(device)
             logits = model(features)
             _, predicted_labels = torch.max(logits, 1)
@@ -63,8 +64,8 @@ class CustomLightningModule(L.LightningModule):
         self.learning_rate = learning_rate
         self.model = model
 
-        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=2)
-        self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=2)
+        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+        self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
 
     def forward(self, input_ids, attention_mask, labels):
         return self.model(input_ids, attention_mask=attention_mask, labels=labels)
@@ -95,5 +96,7 @@ class CustomLightningModule(L.LightningModule):
         self.log("accuracy", self.test_acc, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, betas=(0.9,0.999), eps=1e-08)
+        lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer)
+        #return optimizer
+        return {'optimizer':optimizer, 'lr_scheduler':lr_scheduler}

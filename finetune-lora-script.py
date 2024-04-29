@@ -58,16 +58,20 @@ def count_parameters(model):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='LoRA parameters configuration')
+    parser.add_argument('--enable_lora', type=str2bool, default=True, help='Enable LoRA for finetuning')
     parser.add_argument('--lora_r', type=int, default=8, help='Rank for LoRA layers')
     parser.add_argument('--lora_alpha', type=int, default=16, help='Alpha for LoRA layers')
     parser.add_argument('--lora_query', type=str2bool, default=True, help='Apply LoRA to query')
     parser.add_argument('--lora_key', type=str2bool, default=False, help='Apply LoRA to key')
     parser.add_argument('--lora_value', type=str2bool, default=True, help='Apply LoRA to value')
-    parser.add_argument('--lora_projection', type=str2bool, default=False, help='Apply LoRA to projection')
-    parser.add_argument('--lora_mlp', type=str2bool, default=False, help='Apply LoRA to MLP')
+    #parser.add_argument('--lora_projection', type=str2bool, default=False, help='Apply LoRA to projection')
+    #parser.add_argument('--lora_mlp', type=str2bool, default=False, help='Apply LoRA to MLP')      
+    parser.add_argument('--lora_roberta_intermediate', type=str2bool, default=False, help='Apply LoRA to roberta intermediate')
+    parser.add_argument('--lora_roberta_output', type=str2bool, default=False, help='Apply LoRA to roberta output')
     parser.add_argument('--lora_head', type=str2bool, default=False, help='Apply LoRA to head')
     parser.add_argument('--device', type=int, default=0, help='Specify GPU device index')
     parser.add_argument('--verbose', type=str2bool, default=True, help='Enable/disable progress bars')
+    parser.add_argument('--num_epochs', type=int, default=5, help='Number of epochs to train the model')
     args = parser.parse_args()
 
     if not torch.cuda.is_available():
@@ -75,50 +79,72 @@ if __name__ == "__main__":
         quit()
 
     df_train, df_val, df_test = get_dataset()
-    imdb_tokenized = tokenization()
-    train_loader, val_loader, test_loader = setup_dataloaders(imdb_tokenized)
+    financial_tokenized = tokenization()
+    train_loader, val_loader, test_loader = setup_dataloaders(financial_tokenized)
 
     model = AutoModelForSequenceClassification.from_pretrained(
-        'distilroberta-base', num_labels=2
+        'distilroberta-base', num_labels=3
     )
 
+    num_epochs = int(args.num_epochs)
+    precision="16-mixed"
+    
     # Freeze all layers
     for param in model.parameters():
         param.requires_grad = False
+    
+    # If LoRA is disabled, finetune last 2 layers.
+    if not args.enable_lora:
+        print('LoRA is disabled. Finetuning layers of Classification head')
+        for param in model.classifier.dense.parameters():
+            param.requires_grad = True
+        for param in model.classifier.out_proj.parameters():
+            param.requires_grad = True
 
     assign_lora = partial(LinearWithLoRA, rank=args.lora_r, alpha=args.lora_alpha)
 
-    for layer in model.distilbert.transformer.layer:
-        if args.lora_query:
-            layer.attention.q_lin = assign_lora(layer.attention.q_lin)
-        if args.lora_key:
-            layer.attention.k_lin = assign_lora(layer.attention.k_lin)
-        if args.lora_value:
-            layer.attention.v_lin = assign_lora(layer.attention.v_lin)
-        if args.lora_projection:
-            layer.attention.out_lin = assign_lora(layer.attention.out_lin)
-        if args.lora_mlp:
-            layer.ffn.lin1 = assign_lora(layer.ffn.lin1)
-            layer.ffn.lin2 = assign_lora(layer.ffn.lin2)
-    if args.lora_head:
-        model.pre_classifier = assign_lora(model.pre_classifier)
-        model.classifier = assign_lora(model.classifier)
+    if args.enable_lora:
+        #for layer in model.distilbert.transformer.layer:
+        for layer in model.roberta.encoder.layer:
+            if args.lora_query:
+                #layer.attention.q_lin = assign_lora(layer.attention.q_lin)
+                layer.attention.query = assign_lora(layer.attention.query)
+            if args.lora_key:
+                #layer.attention.k_lin = assign_lora(layer.attention.k_lin)
+                layer.attention.key = assign_lora(layer.attention.key)
+            if args.lora_value:
+                #layer.attention.v_lin = assign_lora(layer.attention.v_lin)
+                layer.attention.value = assign_lora(layer.attention.value)
+            # if args.lora_projection:                                                
+            #     layer.attention.out_lin = assign_lora(layer.attention.out_lin)
+            # if args.lora_mlp:
+            #     layer.ffn.lin1 = assign_lora(layer.ffn.lin1)
+            #     layer.ffn.lin2 = assign_lora(layer.ffn.lin2)
+            if args.lora_roberta_intermediate:
+                layer.intermediate.dense = assign_lora(layer.intermediate.dense)
+            if args.lora_roberta_output:
+                layer.output.dense = assign_lora(layer.output.dense)
+        if args.lora_head:
+            #model.pre_classifier = assign_lora(model.pre_classifier)
+            model.classifier.dense = assign_lora(model.classifier.dense)
+            #model.classifier = assign_lora(model.classifier)
+            model.classifier.out_proj = assign_lora(model.classifier.out_proj)
 
     print("Total number of trainable parameters:", count_parameters(model))
 
-    lightning_model = CustomLightningModule(model)
+    lightning_model = CustomLightningModule(model, learning_rate=2e-05)
     callbacks = [
         ModelCheckpoint(
             save_top_k=1, mode="max", monitor="val_acc"
         )  # save top 1 model
     ]
-    logger = CSVLogger(save_dir="logs/", name=f"my-model-{args.device}")
+    logger = CSVLogger(save_dir="logs/", name=f"my-model-{args.device}")    
 
     trainer = L.Trainer(
-        max_epochs=3,
+        max_epochs=num_epochs,
         callbacks=callbacks,
         accelerator="gpu",
-        precision="16-mixed",
+        precision=precision,
         devices=[int(args.device)],
         logger=logger,
         log_every_n_steps=10,
