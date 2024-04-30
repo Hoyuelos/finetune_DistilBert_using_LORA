@@ -9,6 +9,7 @@ from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
 from transformers import AutoModelForSequenceClassification
+from transformers import RobertaForSequenceClassification
 import torch
 
 from local_dataset_utilities import tokenization, setup_dataloaders, get_dataset
@@ -85,21 +86,28 @@ if __name__ == "__main__":
     model = AutoModelForSequenceClassification.from_pretrained(
         'distilroberta-base', num_labels=3
     )
+    #model = RobertaForSequenceClassification.from_pretrained('distilroberta-base', num_labels=3)
 
     num_epochs = int(args.num_epochs)
     precision="16-mixed"
     
-    # Freeze all layers
-    for param in model.parameters():
-        param.requires_grad = False
+
+    # # Freeze all layers
+    # for param in model.parameters():
+    #     param.requires_grad = False
     
-    # If LoRA is disabled, finetune last 2 layers.
-    if not args.enable_lora:
-        print('LoRA is disabled. Finetuning layers of Classification head')
-        for param in model.classifier.dense.parameters():
-            param.requires_grad = True
-        for param in model.classifier.out_proj.parameters():
-            param.requires_grad = True
+    # # If LoRA is disabled, finetune last 2 layers.
+    # if not args.enable_lora:
+    #     print('LoRA is disabled. Finetuning layers of Classification head')
+    #     for param in model.classifier.dense.parameters():
+    #         param.requires_grad = True
+    #     for param in model.classifier.out_proj.parameters():
+    #         param.requires_grad = True     
+    
+    # # Freeze all the parameters except for the classifier and the last transformer layer
+    # for name, param in model.named_parameters():
+    #     if 'classifier' not in name and 'roberta.encoder.layer.5' not in name:
+    #         param.requires_grad = False 
 
     assign_lora = partial(LinearWithLoRA, rank=args.lora_r, alpha=args.lora_alpha)
 
