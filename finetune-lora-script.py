@@ -92,17 +92,17 @@ if __name__ == "__main__":
     precision="16-mixed"
     
 
-    # # Freeze all layers
-    # for param in model.parameters():
-    #     param.requires_grad = False
+    # Freeze all layers
+    for param in model.parameters():
+        param.requires_grad = False
     
-    # # If LoRA is disabled, finetune last 2 layers.
-    # if not args.enable_lora:
-    #     print('LoRA is disabled. Finetuning layers of Classification head')
-    #     for param in model.classifier.dense.parameters():
-    #         param.requires_grad = True
-    #     for param in model.classifier.out_proj.parameters():
-    #         param.requires_grad = True     
+    # If LoRA is disabled, finetune last 2 layers.
+    if not args.enable_lora:
+        print('LoRA is disabled. Finetuning layers of Classification head')
+        for param in model.classifier.dense.parameters():
+            param.requires_grad = True
+        for param in model.classifier.out_proj.parameters():
+            param.requires_grad = True     
     
     # # Freeze all the parameters except for the classifier and the last transformer layer
     # for name, param in model.named_parameters():
