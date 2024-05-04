@@ -71,6 +71,7 @@ class CustomLightningModule(L.LightningModule):
         return self.model(input_ids, attention_mask=attention_mask, labels=labels)
 
     def training_step(self, batch, batch_idx):
+        #torch.set_grad_enabled(True)        # check -> woraround for 'element 0 of tensors does not require grad and does not have a grad_fn' error -- didn't work
         outputs = self(batch["input_ids"], attention_mask=batch["attention_mask"],
                        labels=batch["label"])
         self.log("train_loss", outputs["loss"])
@@ -96,7 +97,8 @@ class CustomLightningModule(L.LightningModule):
         self.log("accuracy", self.test_acc, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, betas=(0.9,0.999), eps=1e-08)
+        #optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, betas=(0.9,0.999), eps=1e-08)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, betas=(0.9,0.999), eps=1e-08)
         lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer)
         #return optimizer
         return {'optimizer':optimizer, 'lr_scheduler':lr_scheduler}

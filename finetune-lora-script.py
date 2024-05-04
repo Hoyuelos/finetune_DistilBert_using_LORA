@@ -10,8 +10,9 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 
 from transformers import AutoModelForSequenceClassification
 from transformers import RobertaForSequenceClassification
+from transformers import RobertaModel
 import torch
-
+import datetime
 from local_dataset_utilities import tokenization, setup_dataloaders, get_dataset
 from local_model_utilities import CustomLightningModule
 
@@ -77,7 +78,7 @@ if __name__ == "__main__":
 
     if not torch.cuda.is_available():
         print("Please switch to a GPU machine before running this code.")
-        quit()
+        #quit()
 
     df_train, df_val, df_test = get_dataset()
     financial_tokenized = tokenization()
@@ -86,12 +87,13 @@ if __name__ == "__main__":
     model = AutoModelForSequenceClassification.from_pretrained(
         'distilroberta-base', num_labels=3
     )
+    #model = RobertaModel.from_pretrained('distilroberta-base')
     #model = RobertaForSequenceClassification.from_pretrained('distilroberta-base', num_labels=3)
 
     num_epochs = int(args.num_epochs)
     precision="16-mixed"
     
-
+    
     # Freeze all layers
     for param in model.parameters():
         param.requires_grad = False
@@ -103,26 +105,22 @@ if __name__ == "__main__":
             param.requires_grad = True
         for param in model.classifier.out_proj.parameters():
             param.requires_grad = True     
-    
-    # # Freeze all the parameters except for the classifier and the last transformer layer
-    # for name, param in model.named_parameters():
-    #     if 'classifier' not in name and 'roberta.encoder.layer.5' not in name:
-    #         param.requires_grad = False 
+        for param in model.roberta.encoder.layer[0].output.dense.parameters():
+            param.requires_grad = True         
 
     assign_lora = partial(LinearWithLoRA, rank=args.lora_r, alpha=args.lora_alpha)
 
     if args.enable_lora:
-        #for layer in model.distilbert.transformer.layer:
         for layer in model.roberta.encoder.layer:
             if args.lora_query:
                 #layer.attention.q_lin = assign_lora(layer.attention.q_lin)
-                layer.attention.query = assign_lora(layer.attention.query)
+                layer.attention.query = assign_lora(layer.attention.self.query)
             if args.lora_key:
                 #layer.attention.k_lin = assign_lora(layer.attention.k_lin)
-                layer.attention.key = assign_lora(layer.attention.key)
+                layer.attention.key = assign_lora(layer.attention.self.key)
             if args.lora_value:
                 #layer.attention.v_lin = assign_lora(layer.attention.v_lin)
-                layer.attention.value = assign_lora(layer.attention.value)
+                layer.attention.value = assign_lora(layer.attention.self.value)
             # if args.lora_projection:                                                
             #     layer.attention.out_lin = assign_lora(layer.attention.out_lin)
             # if args.lora_mlp:
@@ -138,6 +136,7 @@ if __name__ == "__main__":
             #model.classifier = assign_lora(model.classifier)
             model.classifier.out_proj = assign_lora(model.classifier.out_proj)
 
+    print(model)
     print("Total number of trainable parameters:", count_parameters(model))
 
     lightning_model = CustomLightningModule(model, learning_rate=2e-05)
@@ -187,6 +186,7 @@ if __name__ == "__main__":
     # Print settings and results
     with open("results.txt", "a") as f:
         s = "------------------------------------------------"
+        s += '\n' + str(datetime.datetime.now())
         print(s), f.write(s+"\n")        
         for arg in vars(args):
             s = f'{arg}: {getattr(args, arg)}'
