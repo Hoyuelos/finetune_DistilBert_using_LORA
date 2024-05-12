@@ -5,13 +5,14 @@ import torchmetrics
 import torch
 import torch.nn.functional as F
 
+num_classes = 3
 
 def compute_accuracy(model, data_loader, device):
     model.eval()
     correct_pred, num_examples = 0, 0
     with torch.no_grad():
         for features, targets in data_loader:
-            features = features.view(-1, 28*28).to(device)
+            features = features.view(-1, 28*28).to(device)          # check this out
             targets = targets.to(device)
             logits = model(features)
             _, predicted_labels = torch.max(logits, 1)
@@ -62,23 +63,19 @@ class CustomLightningModule(L.LightningModule):
 
         self.learning_rate = learning_rate
         self.model = model
-        self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=2)
 
-        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=2)
-        self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=2)
+        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
+        self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
 
     def forward(self, input_ids, attention_mask, labels):
         return self.model(input_ids, attention_mask=attention_mask, labels=labels)
 
     def training_step(self, batch, batch_idx):
+        #torch.set_grad_enabled(True)        # check -> woraround for 'element 0 of tensors does not require grad and does not have a grad_fn' error -- didn't work
         outputs = self(batch["input_ids"], attention_mask=batch["attention_mask"],
                        labels=batch["label"])
-        loss = outputs["loss"]
-        logits = outputs["logits"]
-        self.train_acc(torch.argmax(logits, 1), batch["label"])                       
         self.log("train_loss", outputs["loss"])
-        self.log("train_acc", self.train_acc)
-        return outputs["loss"]    
+        return outputs["loss"]  # this is passed to the optimizer for training
 
     def validation_step(self, batch, batch_idx):
         outputs = self(batch["input_ids"], attention_mask=batch["attention_mask"],
@@ -100,5 +97,8 @@ class CustomLightningModule(L.LightningModule):
         self.log("accuracy", self.test_acc, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        #optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, betas=(0.9,0.999), eps=1e-08)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, betas=(0.9,0.999), eps=1e-08)
+        lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer)
+        #return optimizer
+        return {'optimizer':optimizer, 'lr_scheduler':lr_scheduler}
