@@ -52,14 +52,14 @@ following is the list of command line arguments - <br>
 <h3> Results  </h3>
 
 <ul>
-<li> finetuning using LoRA (r=8,alpha=16), Test Accuracy - 89.71%</li>
-<li> finetuning without LoRA (selective finetuning), Test Accuracy - 87.39%</li>
-<li> finetuning without LoRA (full finetuning), Test Accuracy - 91.59%</li>
+<li> Finetuning using LoRA (r=8,alpha=16), Test Accuracy - 89.71%</li>
+<li> Finetuning without LoRA (selective finetuning), Test Accuracy - 87.39%</li>
+<li> Finetuning without LoRA (full finetuning), Test Accuracy - 91.59%</li>
 <li> QLoRA, Test Accuracy - 91.99%</li>
-<li> With ADAM, Test Accuracy - 92.39%</li>
-<li> With SGD, Test Accuracy - 66.45%</li>
-<li> With SGD and Nesterov, Test Accuracy - 91.46%</li>
-<li> With LinearLR Schedular, Test Accuracy - 92.44%</li>
-<li> With OneCycleLR Schedular, Test Accuracy - 50.06%</li>
+<li> LoRA with ADAM, Test Accuracy - 92.39%</li>
+<li> LoRA with SGD, Test Accuracy - 66.45%</li>
+<li> LoRA with SGD and Nesterov, Test Accuracy - 91.46%</li>
+<li> LoRA with LinearLR Schedular, Test Accuracy - 92.44%</li>
+<li> LoRA with OneCycleLR Schedular, Test Accuracy - 50.06%</li>
 
 </ul>
