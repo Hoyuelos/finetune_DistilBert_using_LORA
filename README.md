@@ -1,5 +1,9 @@
 # finetune DistilBert using LORA
 
+Contributers - <br>
+Divya Agarwal - da3257 <br>
+Nitish Singla - nks8902 <br>
+
 <h3> Project Description </h3>
 Goal is to fine-tune an LLM using Low Rand Adaptation (LoRA) and compare its performance, efficiency, and accuracy with traditional fine-tuning along with exploring the effects of varying optimizers, learning rates, dataset and applying quantization (QLoRA). <br>
 With this we aspire to refine the balance between computational efficiency and model performance. <br> 
