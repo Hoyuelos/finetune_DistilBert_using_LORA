@@ -22,6 +22,8 @@ This endeavour will explore the compute-memory trade-off, aiming to establish a 
 
 finetune-lora.py -> This is the main file to start with.  <br>
 local_dataset_utilities.py and local_model_utilities.py are utility files. <br>
+gridsearch.py -> This file contains the code for grid search <br>
+grid_search_results.txt -> This file contains the result of grid search <br>
 
 DistilRoberta directory contains the code of our attempt to finetune DistilRoberta model on Financial Sentiment dataset.
 
